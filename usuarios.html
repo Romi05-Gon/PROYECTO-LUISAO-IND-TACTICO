@@ -1,0 +1,188 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Usuarios - Panel</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="sidebar">
+    <h2>Luisao Panel</h2>
+    <div class="menu">
+      <a href="index.html">Dashboard</a>
+      <a href="productos.html">Productos</a>
+      <a href="ventas.html">Ventas</a>
+      <a href="clientes.html">Clientes</a>
+      <a href="proveedores.html">Proveedores</a>
+      <a href="usuarios.html" class="active">Usuarios</a>
+    </div>
+  </div>
+
+  <div class="content">
+    <h1>Usuarios</h1>
+
+    <div class="card">
+      <div class="header-actions">
+        <button class="btn btn-primary" id="btnNuevo">+ Nuevo Usuario</button>
+        <input id="search" placeholder="Buscar..." />
+      </div>
+
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Usuario</th>
+            <th>Nombre completo</th>
+            <th>Rol</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MODAL -->
+  <div id="modalForm" class="modal hidden">
+    <div class="dialog">
+      <h3 id="modalTitle">Nuevo Usuario</h3>
+
+      <div class="form-row">
+        <label>Usuario</label>
+        <input id="nombre_usuario" />
+      </div>
+
+      <div class="form-row">
+        <label>Contraseña</label>
+        <input id="contraseña" type="password" />
+      </div>
+
+      <div class="form-row">
+        <label>Nombre Completo</label>
+        <input id="nombre_completo" />
+      </div>
+
+      <div class="form-row">
+        <label>Rol</label>
+        <select id="rol">
+          <option value="admin">Admin</option>
+          <option value="vendedor">Vendedor</option>
+        </select>
+      </div>
+
+      <div style="text-align:right; margin-top:12px;">
+        <button class="btn" onclick="hideModal('modalForm')">Cancelar</button>
+        <button class="btn btn-primary" id="saveBtn">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="common.js"></script>
+
+  <script>
+    const resource = "/api/usuarios";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const tbody = document.querySelector(".table tbody");
+      const btnNuevo = document.getElementById("btnNuevo");
+      const saveBtn = document.getElementById("saveBtn");
+
+      let editingId = null;
+
+      async function loadAll() {
+        const data = await apiFetch(resource);
+        renderRows(data);
+      }
+
+      function renderRows(items) {
+        tbody.innerHTML = "";
+
+        items.forEach(u => {
+          const tr = document.createElement("tr");
+
+          tr.innerHTML = `
+            <td>${u.id_usuario}</td>
+            <td>${u.nombre_usuario}</td>
+            <td>${u.nombre_completo || ""}</td>
+            <td>${u.rol}</td>
+            <td>
+              <button class="btn" onclick="onEdit(${u.id_usuario})">Editar</button>
+              <button class="btn btn-danger" onclick="onDelete(${u.id_usuario})">Eliminar</button>
+            </td>
+          `;
+
+          tbody.appendChild(tr);
+        });
+      }
+
+      window.onEdit = async function(id) {
+        const data = await apiFetch(resource + "/" + id);
+        editingId = id;
+
+        document.getElementById("nombre_usuario").value = data.nombre_usuario;
+        document.getElementById("contraseña").value = data.contraseña;
+        document.getElementById("nombre_completo").value = data.nombre_completo || "";
+        document.getElementById("rol").value = data.rol;
+
+        document.getElementById("modalTitle").innerText = "Editar Usuario";
+        showModal("modalForm");
+      };
+
+      window.onDelete = async function(id) {
+        if (!confirm("¿Eliminar usuario?")) return;
+
+        await apiFetch(resource + "/" + id, { method: "DELETE" });
+        loadAll();
+      };
+
+      btnNuevo.addEventListener("click", () => {
+        editingId = null;
+
+        document.getElementById("nombre_usuario").value = "";
+        document.getElementById("contraseña").value = "";
+        document.getElementById("nombre_completo").value = "";
+        document.getElementById("rol").value = "vendedor";
+
+        document.getElementById("modalTitle").innerText = "Nuevo Usuario";
+        showModal("modalForm");
+      });
+
+      saveBtn.addEventListener("click", async () => {
+        const payload = {
+          nombre_usuario: document.getElementById("nombre_usuario").value,
+          contraseña: document.getElementById("contraseña").value,
+          nombre_completo: document.getElementById("nombre_completo").value,
+          rol: document.getElementById("rol").value
+        };
+
+        if (editingId)
+          await apiFetch(resource + "/" + editingId, {
+            method: "PUT",
+            body: JSON.stringify(payload)
+          });
+        else
+          await apiFetch(resource, {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
+
+        hideModal("modalForm");
+        loadAll();
+      });
+
+      document.getElementById("search").addEventListener("input", e => {
+        const q = e.target.value.toLowerCase();
+        Array.from(tbody.querySelectorAll("tr")).forEach(r => {
+          r.style.display = r.innerText.toLowerCase().includes(q) ? "" : "none";
+        });
+      });
+
+      loadAll();
+    });
+  </script>
+
+</body>
+</html>

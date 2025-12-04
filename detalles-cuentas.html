@@ -1,0 +1,59 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Detalles Ventas</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<div class="sidebar"><h2>Luisao Panel</h2><div class="menu"><a href="index.html">Dashboard</a><a href="ventas.html">Ventas</a></div></div>
+
+<div class="content">
+  <h1>Detalles de Venta</h1>
+  <div class="card">
+    <div class="header-actions">
+      <button class="btn btn-primary" id="btnNuevo">+ Nuevo Detalle</button>
+      <input id="search" placeholder="Buscar..." />
+    </div>
+    <table class="table"><thead><tr><th>ID</th><th>ventaId</th><th>producto</th><th>cantidad</th><th>precio</th><th>Acciones</th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
+
+<div id="modalForm" class="modal hidden"><div class="dialog">
+  <h3 id="modalTitle">Nuevo Detalle</h3>
+  <div id="formFields">
+    <div class="form-row"><label>ventaId</label><input id="ventaId" type="number" /></div>
+    <div class="form-row"><label>producto</label><input id="producto" /></div>
+    <div class="form-row"><label>cantidad</label><input id="cantidad" type="number" /></div>
+    <div class="form-row"><label>precio</label><input id="precio" type="number" /></div>
+  </div>
+  <div style="text-align:right; margin-top:12px;">
+    <button class="btn" onclick="hideModal('modalForm')">Cancelar</button>
+    <button class="btn btn-primary" id="saveBtn">Guardar</button>
+  </div>
+</div></div>
+
+<script src="common.js"></script>
+<script>
+const resource = "/api/detalles-ventas";
+document.addEventListener('DOMContentLoaded', ()=>{
+  if(!localStorage.getItem('token')) location.href='login.html';
+  const tablaBody = document.querySelector('.table tbody');
+  const btnNuevo = document.getElementById('btnNuevo');
+  const saveBtn = document.getElementById('saveBtn');
+  let editingId=null;
+
+  async function loadAll(){ try{ const data = await apiFetch(resource); renderRows(data);}catch(e){alert('Error: '+e.message);} }
+  function renderRows(items){ tablaBody.innerHTML=''; items.forEach(item=>{ const tr=document.createElement('tr'); tr.innerHTML = `<td>${item.id}</td><td>${item.ventaId||''}</td><td>${item.producto||''}</td><td>${item.cantidad||''}</td><td>${item.precio||''}</td><td><button class="btn" onclick="onEdit(${item.id})">Editar</button> <button class="btn btn-danger" onclick="onDelete(${item.id})">Eliminar</button></td>`; tablaBody.appendChild(tr); }); }
+
+  window.onEdit = async function(id){ try{ const data = await apiFetch(resource+'/'+id); editingId=id; document.getElementById('ventaId').value=data.ventaId||''; document.getElementById('producto').value=data.producto||''; document.getElementById('cantidad').value=data.cantidad||''; document.getElementById('precio').value=data.precio||''; document.getElementById('modalTitle').innerText='Editar Detalle'; showModal('modalForm'); }catch(e){alert('Error: '+e.message);} }
+
+  window.onDelete = async function(id){ if(!confirm('Confirma eliminar?')) return; try{ await apiFetch(resource+'/'+id,{method:'DELETE'}); await loadAll(); }catch(e){alert('Error: '+e.message);} }
+
+  btnNuevo.addEventListener('click', ()=>{ editingId=null; document.getElementById('ventaId').value=''; document.getElementById('producto').value=''; document.getElementById('cantidad').value='1'; document.getElementById('precio').value='0'; document.getElementById('modalTitle').innerText='Nuevo Detalle'; showModal('modalForm'); });
+  saveBtn.addEventListener('click', async ()=>{ const ventaId=document.getElementById('ventaId').value; const producto=document.getElementById('producto').value.trim(); const cantidad=document.getElementById('cantidad').value; const precio=document.getElementById('precio').value; const payload={ventaId, producto, cantidad, precio}; try{ if(editingId) await apiFetch(resource+'/'+editingId,{method:'PUT', body: JSON.stringify(payload)}); else await apiFetch(resource,{method:'POST', body: JSON.stringify(payload)}); hideModal('modalForm'); await loadAll(); }catch(e){alert('Error: '+e.message);} });
+
+  document.getElementById('search').addEventListener('input',(e)=>{ const q=e.target.value.toLowerCase(); Array.from(tablaBody.querySelectorAll('tr')).forEach(r=> r.style.display = r.innerText.toLowerCase().includes(q)?'':'none'); });
+
+  loadAll();
+});
+</script>
+</body>
+</html>

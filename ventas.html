@@ -1,0 +1,226 @@
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ventas</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <div class="sidebar">
+    <h2>Luisao Panel</h2>
+    <div class="menu">
+      <a href="index.html">Dashboard</a>
+      <a href="productos.html">Productos</a>
+      <a href="ventas.html">Ventas</a>
+      <a href="clientes.html">Clientes</a>
+    </div>
+  </div>
+
+  <div class="content">
+    <h1>Ventas</h1>
+
+    <div class="card">
+      <div class="header-actions">
+        <button class="btn btn-primary" id="btnNuevo">+ Nueva Venta</button>
+        <input id="search" placeholder="Buscar..." />
+      </div>
+
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Cliente</th>
+            <th>Usuario</th>
+            <th>Fecha</th>
+            <th>Total</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MODAL -->
+  <div id="modalForm" class="modal hidden">
+    <div class="dialog">
+      <h3 id="modalTitle">Nueva Venta</h3>
+
+      <div class="form-row">
+        <label>Cliente</label>
+        <select id="id_cliente"></select>
+      </div>
+
+      <div class="form-row">
+        <label>Usuario</label>
+        <select id="id_usuario"></select>
+      </div>
+
+      <div class="form-row">
+        <label>Fecha</label>
+        <input id="fecha" type="date" />
+      </div>
+
+      <div class="form-row">
+        <label>Total</label>
+        <input id="total" type="number" step="0.01" value="0" />
+      </div>
+
+      <div class="form-row">
+        <label>Estado</label>
+        <select id="estado">
+          <option value="pendiente">Pendiente</option>
+          <option value="pagada">Pagada</option>
+          <option value="anulada">Anulada</option>
+        </select>
+      </div>
+
+      <div style="text-align:right; margin-top:12px;">
+        <button class="btn" onclick="hideModal('modalForm')">Cancelar</button>
+        <button class="btn btn-primary" id="saveBtn">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="common.js"></script>
+
+  <script>
+    const resource = "/api/ventas";
+
+    document.addEventListener("DOMContentLoaded", () => {
+
+      const tablaBody = document.querySelector(".table tbody");
+      const btnNuevo = document.getElementById("btnNuevo");
+      const saveBtn = document.getElementById("saveBtn");
+
+      const selectClientes = document.getElementById("id_cliente");
+      const selectUsuarios = document.getElementById("id_usuario");
+
+      let editingId = null;
+
+      async function loadClientes() {
+        const clientes = await apiFetch("/api/clientes");
+        selectClientes.innerHTML = "";
+
+        clientes.forEach(c => {
+          const opt = document.createElement("option");
+          opt.value = c.id_cliente;
+          opt.textContent = `${c.nombre} ${c.apellido}`;
+          selectClientes.appendChild(opt);
+        });
+      }
+
+      async function loadUsuarios() {
+        const usuarios = await apiFetch("/api/usuarios");
+        selectUsuarios.innerHTML = "";
+
+        usuarios.forEach(u => {
+          const opt = document.createElement("option");
+          opt.value = u.id_usuario;
+          opt.textContent = u.nombre;
+          selectUsuarios.appendChild(opt);
+        });
+      }
+
+      async function loadAll() {
+        const data = await apiFetch(resource);
+        renderRows(data);
+      }
+
+      function renderRows(items) {
+        tablaBody.innerHTML = "";
+
+        items.forEach(item => {
+          const tr = document.createElement("tr");
+
+          tr.innerHTML = `
+            <td>${item.id_venta}</td>
+            <td>${item.cliente_nombre || ""} ${item.cliente_apellido || ""}</td>
+            <td>${item.usuario_nombre || ""}</td>
+            <td>${item.fecha ? item.fecha.split("T")[0] : ""}</td>
+            <td>${item.total}</td>
+            <td>${item.estado}</td>
+            <td>
+              <button class="btn" onclick="onEdit(${item.id_venta})">Editar</button>
+              <button class="btn btn-danger" onclick="onDelete(${item.id_venta})">Eliminar</button>
+            </td>
+          `;
+
+          tablaBody.appendChild(tr);
+        });
+      }
+
+      window.onEdit = async function (id) {
+        const data = await apiFetch(resource + "/" + id);
+        editingId = id;
+
+        document.getElementById("fecha").value = data.fecha ? data.fecha.split("T")[0] : "";
+        document.getElementById("total").value = data.total;
+        document.getElementById("estado").value = data.estado;
+
+        document.getElementById("id_cliente").value = data.id_cliente;
+        document.getElementById("id_usuario").value = data.id_usuario;
+
+        document.getElementById("modalTitle").innerText = "Editar Venta";
+        showModal("modalForm");
+      };
+
+      window.onDelete = async function (id) {
+        if (!confirm("¿Eliminar venta?")) return;
+        await apiFetch(resource + "/" + id, { method: "DELETE" });
+        loadAll();
+      };
+
+      btnNuevo.addEventListener("click", async () => {
+        editingId = null;
+        await loadClientes();
+        await loadUsuarios();
+
+        document.getElementById("fecha").value = "";
+        document.getElementById("total").value = "0";
+        document.getElementById("estado").value = "pendiente";
+
+        document.getElementById("modalTitle").innerText = "Nueva Venta";
+
+        showModal("modalForm");
+      });
+
+      saveBtn.addEventListener("click", async () => {
+
+        const payload = {
+          id_cliente: document.getElementById("id_cliente").value,
+          id_usuario: document.getElementById("id_usuario").value,
+          fecha: document.getElementById("fecha").value,
+          total: document.getElementById("total").value,
+          estado: document.getElementById("estado").value
+        };
+
+        if (editingId)
+          await apiFetch(resource + "/" + editingId, {
+            method: "PUT",
+            body: JSON.stringify(payload)
+          });
+        else
+          await apiFetch(resource, {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
+
+        hideModal("modalForm");
+        loadAll();
+      });
+
+      loadClientes();
+      loadUsuarios();
+      loadAll();
+    });
+  </script>
+
+</body>
+</html> 

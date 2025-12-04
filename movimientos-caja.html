@@ -1,0 +1,187 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Movimientos de Caja</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="sidebar">
+  <h2>Luisao Panel</h2>
+  <div class="menu">
+    <a href="index.html">Dashboard</a>
+    <a href="productos.html">Productos</a>
+    <a href="ventas.html">Ventas</a>
+    <a href="clientes.html">Clientes</a>
+    <a href="proveedores.html">Proveedores</a>
+    <a href="usuarios.html">Usuarios</a>
+    <a href="pagos.html">Pagos</a>
+    <a href="movimientos-caja.html">Movimientos Caja</a>
+  </div>
+</div>
+
+<div class="content">
+  <h1>Movimientos de Caja</h1>
+
+  <div class="card">
+    <div class="header-actions">
+      <button class="btn btn-primary" id="btnNuevo">+ Nuevo Movimiento</button>
+      <input id="search" placeholder="Buscar..." />
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Fecha</th>
+          <th>Tipo</th>
+          <th>Monto</th>
+          <th>Descripción</th>
+          <th>Usuario</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modalForm" class="modal hidden">
+  <div class="dialog">
+    <h3 id="modalTitle">Nuevo Movimiento</h3>
+
+    <div class="form-row">
+      <label>Fecha</label>
+      <input id="fecha" type="datetime-local">
+    </div>
+
+    <div class="form-row">
+      <label>Tipo</label>
+      <select id="tipo">
+        <option value="ingreso">Ingreso</option>
+        <option value="egreso">Egreso</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label>Monto</label>
+      <input id="monto" type="number">
+    </div>
+
+    <div class="form-row">
+      <label>Descripción</label>
+      <textarea id="descripcion"></textarea>
+    </div>
+
+    <div class="form-row">
+      <label>Usuario</label>
+      <input id="usuario">
+    </div>
+
+    <div style="text-align:right; margin-top:14px;">
+      <button class="btn" onclick="hideModal('modalForm')">Cancelar</button>
+      <button class="btn btn-primary" id="saveBtn">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script src="common.js"></script>
+<script>
+const resource = "/api/movimientos-caja";
+let editingId = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (!localStorage.getItem("token")) location.href = "login.html";
+
+  const tbody = document.querySelector(".table tbody");
+  const saveBtn = document.getElementById("saveBtn");
+
+  async function loadAll() {
+    const data = await apiFetch(resource);
+    renderRows(data);
+  }
+
+  function renderRows(items) {
+    tbody.innerHTML = "";
+    items.forEach(m => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${m.id_movimiento}</td>
+        <td>${m.fecha}</td>
+        <td>${m.tipo}</td>
+        <td>${m.monto}</td>
+        <td>${m.descripcion || ""}</td>
+        <td>${m.usuario}</td>
+        <td>
+          <button class="btn" onclick="onEdit(${m.id_movimiento})">Editar</button>
+          <button class="btn btn-danger" onclick="onDelete(${m.id_movimiento})">Eliminar</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  window.onEdit = async function(id) {
+    const m = await apiFetch(resource + "/" + id);
+    editingId = id;
+
+    document.getElementById("fecha").value = m.fecha.replace(" ", "T");
+    document.getElementById("tipo").value = m.tipo;
+    document.getElementById("monto").value = m.monto;
+    document.getElementById("descripcion").value = m.descripcion || "";
+    document.getElementById("usuario").value = m.usuario;
+
+    document.getElementById("modalTitle").innerText = "Editar Movimiento";
+    showModal("modalForm");
+  };
+
+  window.onDelete = async function(id) {
+    if (!confirm("¿Eliminar movimiento?")) return;
+    await apiFetch(resource + "/" + id, { method: "DELETE" });
+    loadAll();
+  };
+
+  document.getElementById("btnNuevo").addEventListener("click", () => {
+    editingId = null;
+    document.querySelectorAll("#modalForm input, #modalForm textarea").forEach(el => el.value = "");
+    document.getElementById("tipo").value = "ingreso";
+    document.getElementById("modalTitle").innerText = "Nuevo Movimiento";
+    showModal("modalForm");
+  });
+
+  saveBtn.addEventListener("click", async () => {
+    const payload = {
+      fecha: document.getElementById("fecha").value,
+      tipo: document.getElementById("tipo").value,
+      monto: document.getElementById("monto").value,
+      descripcion: document.getElementById("descripcion").value,
+      usuario: document.getElementById("usuario").value
+    };
+
+    if (editingId)
+      await apiFetch(resource + "/" + editingId, { method: "PUT", body: JSON.stringify(payload) });
+    else
+      await apiFetch(resource, { method: "POST", body: JSON.stringify(payload) });
+
+    hideModal("modalForm");
+    loadAll();
+  });
+
+  document.getElementById("search").addEventListener("input", e => {
+    const q = e.target.value.toLowerCase();
+    [...tbody.querySelectorAll("tr")].forEach(r => {
+      r.style.display = r.innerText.toLowerCase().includes(q) ? "" : "none";
+    });
+  });
+
+  loadAll();
+});
+</script>
+
+</body>
+</html>

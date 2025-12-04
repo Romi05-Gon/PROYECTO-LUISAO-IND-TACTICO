@@ -1,0 +1,171 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Clientes - Panel</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="sidebar">
+    <h2>Luisao Panel</h2>
+    <div class="menu">
+      <a href="index.html">Dashboard</a>
+      <a href="productos.html">Productos</a>
+      <a href="ventas.html">Ventas</a>
+      <a href="clientes.html">Clientes</a>
+      <a href="proveedores.html">Proveedores</a>
+      <a href="usuarios.html">Usuarios</a>
+      <a href="pagos.html">Pagos</a>
+    </div>
+  </div>
+
+  <div class="content">
+    <h1>Clientes</h1>
+
+    <div class="card">
+      <div class="header-actions">
+        <button class="btn btn-primary" id="btnNuevo">+ Nuevo Cliente</button>
+        <input id="search" placeholder="Buscar..." />
+      </div>
+
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>nombre</th>
+            <th>telefono</th>
+            <th>email</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MODAL -->
+  <div id="modalForm" class="modal hidden">
+    <div class="dialog">
+      <h3 id="modalTitle">Nuevo Cliente</h3>
+
+      <div id="formFields">
+        <div class="form-row"><label>nombre</label><input id="nombre" /></div>
+        <div class="form-row"><label>telefono</label><input id="telefono" /></div>
+        <div class="form-row"><label>email</label><input id="email" /></div>
+      </div>
+
+      <div style="text-align:right; margin-top:12px;">
+        <button class="btn" onclick="hideModal('modalForm')">Cancelar</button>
+        <button class="btn btn-primary" id="saveBtn">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+<script src="common.js"></script>
+
+<script>
+const resource = "/api/clientes";
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (!localStorage.getItem("token")) location.href = "login.html";
+
+  const tablaBody = document.querySelector(".table tbody");
+  const btnNuevo = document.getElementById("btnNuevo");
+  const saveBtn = document.getElementById("saveBtn");
+
+  let editingId = null;
+
+  async function loadAll() {
+    const data = await apiFetch(resource);
+    renderRows(data);
+  }
+
+  function renderRows(items) {
+    tablaBody.innerHTML = "";
+
+    items.forEach(item => {
+      const tr = document.createElement("tr");
+
+      tr.innerHTML = `
+        <td>${item.id_cliente}</td>
+        <td>${item.nombre || ""}</td>
+        <td>${item.telefono || ""}</td>
+        <td>${item.email || ""}</td>
+        <td>
+          <button class="btn" onclick="onEdit(${item.id_cliente})">Editar</button>
+          <button class="btn btn-danger" onclick="onDelete(${item.id_cliente})">Eliminar</button>
+        </td>
+      `;
+
+      tablaBody.appendChild(tr);
+    });
+  }
+
+  window.onEdit = async function(id) {
+    const data = await apiFetch(resource + "/" + id);
+    editingId = id;
+
+    document.getElementById("nombre").value = data.nombre || "";
+    document.getElementById("telefono").value = data.telefono || "";
+    document.getElementById("email").value = data.email || "";
+
+    document.getElementById("modalTitle").innerText = "Editar Cliente";
+    showModal("modalForm");
+  };
+
+  window.onDelete = async function(id) {
+    if (!confirm("Confirma eliminar?")) return;
+
+    await apiFetch(resource + "/" + id, { method: "DELETE" });
+    loadAll();
+  };
+
+  btnNuevo.addEventListener("click", () => {
+    editingId = null;
+
+    document.getElementById("nombre").value = "";
+    document.getElementById("telefono").value = "";
+    document.getElementById("email").value = "";
+
+    document.getElementById("modalTitle").innerText = "Nuevo Cliente";
+    showModal("modalForm");
+  });
+
+  saveBtn.addEventListener("click", async () => {
+    const payload = {
+      nombre: document.getElementById("nombre").value.trim(),
+      telefono: document.getElementById("telefono").value.trim(),
+      email: document.getElementById("email").value.trim()
+    };
+
+    if (editingId)
+      await apiFetch(resource + "/" + editingId, {
+        method: "PUT",
+        body: JSON.stringify(payload)
+      });
+    else
+      await apiFetch(resource, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+
+    hideModal("modalForm");
+    loadAll();
+  });
+
+  document.getElementById("search").addEventListener("input", e => {
+    const q = e.target.value.toLowerCase();
+
+    Array.from(tablaBody.querySelectorAll("tr")).forEach(r => {
+      r.style.display = r.innerText.toLowerCase().includes(q) ? "" : "none";
+    });
+  });
+
+  loadAll();
+});
+</script>
+
+</body>
+</html>

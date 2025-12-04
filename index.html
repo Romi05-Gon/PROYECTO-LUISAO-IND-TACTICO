@@ -1,0 +1,47 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Luisao</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>Luisao Panel</h2>
+  <div class="menu">
+    <a href="index.html">Dashboard</a>
+    <a href="productos.html">Productos</a>
+    <a href="ventas.html">Ventas</a>
+    <a href="clientes.html">Clientes</a>
+    <a href="proveedores.html">Proveedores</a>
+    <a href="usuarios.html">Usuarios</a>
+    <a href="pagos.html">Pagos</a>
+    <a href="movimientos-caja.html">Movimientos Caja</a>
+    <a href="cierres-caja.html">Cierres Caja</a>
+  </div>
+</div>
+
+<div class="content">
+  <h1>Dashboard</h1>
+  <p>Bienvenido al sistema.</p>
+
+  <button class="btn" onclick="logout()">Cerrar sesión</button>
+</div>
+
+<script>
+  // Cambiado: antes buscaba token, ahora usuario
+  if (!localStorage.getItem("usuario")) {
+    location.href = "login.html";
+  }
+
+  function logout() {
+    localStorage.removeItem("usuario");
+    location.href = "login.html";
+  }
+</script>
+
+</body>
+</html>

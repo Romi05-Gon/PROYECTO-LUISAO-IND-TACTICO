@@ -1,0 +1,200 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cierres de Caja</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="sidebar">
+  <h2>Luisao Panel</h2>
+  <div class="menu">
+    <a href="index.html">Dashboard</a>
+    <a href="productos.html">Productos</a>
+    <a href="ventas.html">Ventas</a>
+    <a href="clientes.html">Clientes</a>
+    <a href="proveedores.html">Proveedores</a>
+    <a href="usuarios.html">Usuarios</a>
+    <a href="pagos.html">Pagos</a>
+    <a href="cierres_caja.html">Cierres Caja</a>
+  </div>
+</div>
+
+<div class="content">
+  <h1>Cierres de Caja</h1>
+
+  <div class="card">
+    <div class="header-actions">
+      <button class="btn btn-primary" id="btnNuevo">+ Nuevo Cierre</button>
+      <input id="search" placeholder="Buscar..." />
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Inicio</th>
+          <th>Fin</th>
+          <th>Monto Inicial</th>
+          <th>Monto Final</th>
+          <th>Usuario</th>
+          <th>Observaciones</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modalForm" class="modal hidden">
+  <div class="dialog">
+    <h3 id="modalTitle">Nuevo Cierre</h3>
+
+    <div class="form-row">
+      <label>Fecha Inicio</label>
+      <input id="fecha_inicio" type="datetime-local">
+    </div>
+
+    <div class="form-row">
+      <label>Fecha Fin</label>
+      <input id="fecha_fin" type="datetime-local">
+    </div>
+
+    <div class="form-row">
+      <label>Monto Inicial</label>
+      <input id="monto_inicial" type="number">
+    </div>
+
+    <div class="form-row">
+      <label>Monto Final</label>
+      <input id="monto_final" type="number">
+    </div>
+
+    <div class="form-row">
+      <label>Usuario</label>
+      <input id="usuario">
+    </div>
+
+    <div class="form-row">
+      <label>Observaciones</label>
+      <textarea id="observaciones"></textarea>
+    </div>
+
+    <div style="text-align:right;margin-top:14px;">
+      <button class="btn" onclick="hideModal('modalForm')">Cancelar</button>
+      <button class="btn btn-primary" id="saveBtn">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script src="common.js"></script>
+<script>
+const resource = "/api/cierres-caja";
+let editingId = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (!localStorage.getItem("token")) location.href = "login.html";
+
+  const tbody = document.querySelector(".table tbody");
+  const saveBtn = document.getElementById("saveBtn");
+
+  async function loadAll() {
+    const data = await apiFetch(resource);
+    renderRows(data);
+  }
+
+  function renderRows(items) {
+    tbody.innerHTML = "";
+    items.forEach(c => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${c.id_cierre}</td>
+        <td>${c.fecha_inicio}</td>
+        <td>${c.fecha_fin}</td>
+        <td>${c.monto_inicial}</td>
+        <td>${c.monto_final}</td>
+        <td>${c.usuario}</td>
+        <td>${c.observaciones || ""}</td>
+        <td>
+          <button class="btn" onclick="onEdit(${c.id_cierre})">Editar</button>
+          <button class="btn btn-danger" onclick="onDelete(${c.id_cierre})">Eliminar</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  window.onEdit = async function(id) {
+    const c = await apiFetch(resource + "/" + id);
+    editingId = id;
+
+    document.getElementById("fecha_inicio").value = c.fecha_inicio.replace(" ", "T");
+    document.getElementById("fecha_fin").value = c.fecha_fin.replace(" ", "T");
+    document.getElementById("monto_inicial").value = c.monto_inicial;
+    document.getElementById("monto_final").value = c.monto_final;
+    document.getElementById("usuario").value = c.usuario;
+    document.getElementById("observaciones").value = c.observaciones || "";
+
+    document.getElementById("modalTitle").innerText = "Editar Cierre";
+    showModal("modalForm");
+  };
+
+  window.onDelete = async function(id) {
+    if (!confirm("¿Eliminar cierre?")) return;
+    await apiFetch(resource + "/" + id, { method: "DELETE" });
+    loadAll();
+  };
+
+  document.getElementById("btnNuevo").addEventListener("click", () => {
+    editingId = null;
+    document.querySelectorAll("#modalForm input, #modalForm textarea")
+      .forEach(el => el.value = "");
+    document.getElementById("modalTitle").innerText = "Nuevo Cierre";
+
+    showModal("modalForm");
+  });
+
+  saveBtn.addEventListener("click", async () => {
+    const payload = {
+      fecha_inicio: document.getElementById("fecha_inicio").value,
+      fecha_fin: document.getElementById("fecha_fin").value,
+      monto_inicial: document.getElementById("monto_inicial").value,
+      monto_final: document.getElementById("monto_final").value,
+      usuario: document.getElementById("usuario").value,
+      observaciones: document.getElementById("observaciones").value,
+    };
+
+    if (editingId)
+      await apiFetch(resource + "/" + editingId, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+    else
+      await apiFetch(resource, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+    hideModal("modalForm");
+    loadAll();
+  });
+
+  document.getElementById("search").addEventListener("input", e => {
+    const q = e.target.value.toLowerCase();
+    [...tbody.querySelectorAll("tr")].forEach(r => {
+      r.style.display = r.innerText.toLowerCase().includes(q) ? "" : "none";
+    });
+  });
+
+  loadAll();
+});
+</script>
+
+</body>
+</html>

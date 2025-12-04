@@ -1,0 +1,172 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pagos - Panel</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="sidebar">
+  <h2>Luisao Panel</h2>
+  <div class="menu">
+    <a href="index.html">Dashboard</a>
+    <a href="productos.html">Productos</a>
+    <a href="ventas.html">Ventas</a>
+    <a href="clientes.html">Clientes</a>
+    <a href="proveedores.html">Proveedores</a>
+    <a href="usuarios.html">Usuarios</a>
+    <a href="pagos.html">Pagos</a>
+  </div>
+</div>
+
+<div class="content">
+  <h1>Pagos</h1>
+
+  <div class="card">
+    <div class="header-actions">
+      <button class="btn btn-primary" id="btnNuevo">+ Nuevo Pago</button>
+      <input id="search" placeholder="Buscar...">
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Venta</th>
+          <th>Monto</th>
+          <th>Método</th>
+          <th>Fecha</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modalForm" class="modal hidden">
+  <div class="dialog">
+    <h3 id="modalTitle">Nuevo Pago</h3>
+
+    <div id="formFields">
+      <div class="form-row"><label>ID Venta</label><input id="id_venta"></div>
+      <div class="form-row"><label>Monto</label><input id="monto"></div>
+      <div class="form-row"><label>Método</label><input id="metodo"></div>
+      <div class="form-row"><label>Fecha Pago</label><input id="fecha_pago" type="date"></div>
+    </div>
+
+    <div style="text-align:right;margin-top:12px;">
+      <button class="btn" onclick="hideModal('modalForm')">Cancelar</button>
+      <button class="btn btn-primary" id="saveBtn">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script src="common.js"></script>
+<script>
+const resource = "/api/pagos";
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (!localStorage.getItem("token")) location.href = "login.html";
+
+  const tbody = document.querySelector(".table tbody");
+  const btnNuevo = document.getElementById("btnNuevo");
+  const saveBtn = document.getElementById("saveBtn");
+
+  let editingId = null;
+
+  async function loadAll() {
+    const data = await apiFetch(resource);
+    renderRows(data);
+  }
+
+  function renderRows(items) {
+    tbody.innerHTML = "";
+    items.forEach(p => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${p.id_pago}</td>
+        <td>${p.id_venta}</td>
+        <td>${p.monto}</td>
+        <td>${p.metodo}</td>
+        <td>${p.fecha_pago?.substring(0,10) || ""}</td>
+        <td>
+          <button class="btn" onclick="onEdit(${p.id_pago})">Editar</button>
+          <button class="btn btn-danger" onclick="onDelete(${p.id_pago})">Eliminar</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  window.onEdit = async function (id) {
+    const data = await apiFetch(resource + "/" + id);
+    editingId = id;
+
+    document.getElementById("id_venta").value = data.id_venta;
+    document.getElementById("monto").value = data.monto;
+    document.getElementById("metodo").value = data.metodo;
+    document.getElementById("fecha_pago").value = data.fecha_pago?.substring(0, 10);
+
+    document.getElementById("modalTitle").innerText = "Editar Pago";
+    showModal("modalForm");
+  };
+
+  window.onDelete = async function (id) {
+    if (!confirm("Confirmar eliminar?")) return;
+    await apiFetch(resource + "/" + id, { method: "DELETE" });
+    loadAll();
+  };
+
+  btnNuevo.addEventListener("click", () => {
+    editingId = null;
+    document.getElementById("id_venta").value = "";
+    document.getElementById("monto").value = "";
+    document.getElementById("metodo").value = "";
+    document.getElementById("fecha_pago").value = "";
+
+    document.getElementById("modalTitle").innerText = "Nuevo Pago";
+    showModal("modalForm");
+  });
+
+  saveBtn.addEventListener("click", async () => {
+    const payload = {
+      id_venta: document.getElementById("id_venta").value,
+      monto: document.getElementById("monto").value,
+      metodo: document.getElementById("metodo").value,
+      fecha_pago: document.getElementById("fecha_pago").value,
+    };
+
+    if (editingId)
+      await apiFetch(resource + "/" + editingId, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+    else
+      await apiFetch(resource, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+    hideModal("modalForm");
+    loadAll();
+  });
+
+  document.getElementById("search").addEventListener("input", e => {
+    const q = e.target.value.toLowerCase();
+    [...tbody.querySelectorAll("tr")].forEach(r => {
+      r.style.display = r.innerText.toLowerCase().includes(q) ? "" : "none";
+    });
+  });
+
+  loadAll();
+});
+</script>
+
+</body>
+</html>
